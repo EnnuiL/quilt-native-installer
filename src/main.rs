@@ -3,10 +3,13 @@
 use anyhow::Result;
 use clap::Parser;
 
+mod old_gui;
 mod gui;
 mod installer;
 
-const ICON: &'static [u8] = include_bytes!("../quilt.png");
+const FONT_REGULAR: &'static [u8] = include_bytes!("../assets/poppins/Poppins-Regular.ttf");
+const FONT_MEDIUM: &'static [u8] = include_bytes!("../assets/poppins/Poppins-Medium.ttf");
+const ICON: &'static [u8] = include_bytes!("../assets/quilt.png");
 
 #[derive(Default, Parser)]
 #[clap(about, version)]
@@ -23,6 +26,7 @@ fn main() -> Result<()> {
         println!("No gui mode")
     } else {
         gui::run(args)?;
+        //old_gui::run(args)?;
     }
 
     Ok(())
