@@ -10,7 +10,7 @@ use image::ImageFormat;
 use native_dialog::FileDialog;
 
 use crate::installer::{MinecraftVersion, fetch_minecraft_versions, LoaderVersion, fetch_loader_versions, install_client, ClientInstallation};
-use crate::{Args, FONT_MEDIUM, ICON};
+use crate::{Args, FONT_MEDIUM, ICON, FONT_REGULAR};
 
 pub fn run(args: Args) -> iced::Result {
     let mut settings = Settings::default();
@@ -195,21 +195,26 @@ impl Application for Installer {
     }
 
     fn view(&self) -> Element<'_, Self::Message, iced::Renderer<Self::Theme>> {
-        let minecraft_version_label = text("Minecraft Version:").width(Length::Units(380));
+        let minecraft_version_label = text("Minecraft Version:").width(Length::Units(180));
         let minecraft_version_pick_list = pick_list(
             Cow::from_iter((self.minecraft_versions.iter().filter(|v| self.show_minecraft_snapshots || v.stable)).cloned()),
             self.selected_minecraft_version.clone(),
             Message::SelectMinecraftVersion
         )
-        .width(Length::Units(380));
+        .width(Length::Units(180));
 
-        let loader_version_label = text("Quilt Loader Version:").width(Length::Units(380));
+        let loader_version_label = text("Quilt Loader Version:").width(Length::Units(180));
         let loader_version_pick_list = pick_list(
             Cow::from_iter((self.loader_versions.iter().filter(|v| self.show_loader_betas || !v.version.contains('-'))).cloned()),
             self.selected_loader_version.clone(),
             Message::SelectLoaderVersion
         )
-        .width(Length::Units(380));
+        .width(Length::Units(180));
+
+        let versions_row = row![
+            column![minecraft_version_label, minecraft_version_pick_list].width(Length::Units(180)),
+            column![loader_version_label, loader_version_pick_list].width(Length::Units(180)),
+        ].spacing(20);
             
         let directory_label = text("Directory:").width(Length::Units(380));
         let directory_input = text_input("Installation Location", &self.directory.to_str().unwrap(), Message::DirectoryInputChanged).width(Length::Units(280));
@@ -230,10 +235,7 @@ impl Application for Installer {
         let installing_text = text("Installing...");
 
         let mut content = column![
-            minecraft_version_label,
-            minecraft_version_pick_list,
-            loader_version_label,
-            loader_version_pick_list,
+            versions_row,
             directory_label,
             directory_row,
             options_label,

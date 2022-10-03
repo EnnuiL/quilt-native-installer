@@ -14,7 +14,7 @@ anyhow = "1.0"
 async-trait = "0.1"
 base64 = "0.13"
 chrono = "0.4"
-clap = { version = "3.2", features = ["derive"] }
+clap = { version = "4.0", features = ["derive"] }
 iced = { git = "https://github.com/iced-rs/iced", default_features = false, features = ["glow", "image", "tokio"] }
 image = { version = "0.23", default_features = false, features = ["png"] }
 native-dialog = "0.6.3"
