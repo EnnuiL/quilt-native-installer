@@ -6,9 +6,11 @@ use clap::Parser;
 mod old_gui;
 mod gui;
 mod installer;
+pub mod theme;
 
 const FONT_REGULAR: &'static [u8] = include_bytes!("../assets/poppins/Poppins-Regular.ttf");
 const FONT_MEDIUM: &'static [u8] = include_bytes!("../assets/poppins/Poppins-Medium.ttf");
+const FONT_SEMIBOLD: &'static [u8] = include_bytes!("../assets/poppins/Poppins-SemiBold.ttf");
 const ICON: &'static [u8] = include_bytes!("../assets/quilt.png");
 
 #[derive(Default, Parser)]
