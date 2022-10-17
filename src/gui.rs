@@ -30,10 +30,14 @@ pub fn run(args: Args) -> iced::Result {
 
 #[derive(Debug)]
 struct Installer {
+    page: Page,
+
+    have_minecraft_versions_loaded: Option<bool>,
     minecraft_versions: Vec<MinecraftVersion>,
     selected_minecraft_version: Option<MinecraftVersion>,
     show_minecraft_snapshots: bool,
     
+    have_loader_versions_loaded: Option<bool>,
     loader_versions: Vec<LoaderVersion>,
     selected_loader_version: Option<LoaderVersion>,
     show_loader_betas: bool,
@@ -44,11 +48,24 @@ struct Installer {
     is_installing: bool,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+enum Page {
+    Main,
+    ClientInstallLoading,
+    ClientInstall,
+    ServerDownload
+}
+
 #[derive(Debug, Clone)]
 enum Message {
+    UpdatePage(Page),
+    EnterClientInstall,
+    Retry,
     SetMinecraftVersions(Vec<MinecraftVersion>),
+    FailMinecraftVersions,
     SelectMinecraftVersion(MinecraftVersion),
     SetLoaderVersions(Vec<LoaderVersion>),
+    FailLoaderVersions,
     SelectLoaderVersion(LoaderVersion),
     DirectoryInputChangeButtonPressed,
     ShowMinecraftSnapshotsCheckmarkChanged(bool),
@@ -90,8 +107,11 @@ impl Application for Installer {
     fn new(_flags: Self::Flags) -> (Self, Command<Self::Message>) {
         (
             Installer {
+                page: Page::Main,
+                have_minecraft_versions_loaded: None,
                 minecraft_versions: vec![],
                 selected_minecraft_version: None,
+                have_loader_versions_loaded: None,
                 loader_versions: vec![],
                 selected_loader_version: None,
                 show_loader_betas: false, 
@@ -101,15 +121,22 @@ impl Application for Installer {
                 is_installing: false,
             },
             Command::batch([
-                // TODO - Do better error handling
+                // TODO - This is a mess; We need a better way to control this
                 Command::perform(fetch_minecraft_versions(), |result| {
-                    // The plan for error handling without shenanigans is simple!
-                    // If it succeeds, we execute this message:
-                    Message::SetMinecraftVersions(result.unwrap())
-                    // But if it doesn't? We'll execute another one that will handle the error smoothly
+                    if result.is_ok() {
+                        Message::SetMinecraftVersions(result.unwrap())
+                    } else {
+                        println!("Couldn't fetch Minecraft versions! {}", result.unwrap_err());
+                        Message::FailMinecraftVersions
+                    }
                 }),
                 Command::perform(fetch_loader_versions(), |result| {
-                    Message::SetLoaderVersions(result.unwrap())
+                    if result.is_ok() {
+                        Message::SetLoaderVersions(result.unwrap())
+                    } else {
+                        println!("Couldn't fetch Minecraft versions! {}", result.unwrap_err());
+                        Message::FailLoaderVersions
+                    }
                 }),
             ])
         )
@@ -121,15 +148,53 @@ impl Application for Installer {
 
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         match message {
+            Message::UpdatePage(page) => self.page = page,
+            Message::EnterClientInstall => {
+                // TODO - All the code has MC versions in mind, but what about Loader?
+                if self.have_minecraft_versions_loaded.is_some() && self.have_minecraft_versions_loaded.unwrap() {
+                    self.page = Page::ClientInstall;
+                } else {
+                    self.page = Page::ClientInstallLoading
+                }
+            }
+            Message::Retry => {
+                Command::batch([
+                    // TODO - This is a redundance that should be a separate fn
+                    Command::perform(fetch_minecraft_versions(), |result| {
+                        if result.is_ok() {
+                            Message::SetMinecraftVersions(result.unwrap())
+                        } else {
+                            println!("Couldn't fetch Minecraft versions! {}", result.unwrap_err());
+                            Message::FailMinecraftVersions
+                        }
+                    }),
+                    Command::perform(fetch_loader_versions(), |result| {
+                        if result.is_ok() {
+                            Message::SetLoaderVersions(result.unwrap())
+                        } else {
+                            println!("Couldn't fetch Minecraft versions! {}", result.unwrap_err());
+                            Message::FailLoaderVersions
+                        }
+                    }),
+                ]);
+            },
             Message::SetMinecraftVersions(versions) => {
                 self.minecraft_versions = versions.clone();
                 self.selected_minecraft_version = versions.iter().filter(|v| v.stable).cloned().next();
+                self.have_minecraft_versions_loaded = Some(true);
+                if self.page == Page::ClientInstallLoading {
+                    self.page = Page::ClientInstall
+                }
+            },
+            Message::FailMinecraftVersions => {
+                self.have_minecraft_versions_loaded = Some(false);
             },
             Message::SelectMinecraftVersion(version) => self.selected_minecraft_version = Some(version),
             Message::SetLoaderVersions(versions) => {
                 self.loader_versions = versions.clone();
                 self.selected_loader_version = versions.iter().filter(|v| !v.version.contains('-')).cloned().next();
             },
+            Message::FailLoaderVersions => {},
             Message::SelectLoaderVersion(version) => self.selected_loader_version = Some(version),
             Message::DirectoryInputChangeButtonPressed => {
                 let mut dialog = FileDialog::new();
@@ -198,50 +263,6 @@ impl Application for Installer {
     }
 
     fn view(&self) -> Element<'_, Self::Message, iced::Renderer<Self::Theme>> {
-        let minecraft_version_label = text("Minecraft Version:").font(POPPINS_SEMIBOLD_FONT).width(Length::Units(185));
-        let minecraft_version_pick_list = pick_list(
-            Cow::from_iter((self.minecraft_versions.iter().filter(|v| self.show_minecraft_snapshots || v.stable)).cloned()),
-            self.selected_minecraft_version.clone(),
-            Message::SelectMinecraftVersion
-        )
-        .width(Length::Units(185));
-
-        let loader_version_label = text("Quilt Loader Version:").font(POPPINS_SEMIBOLD_FONT).width(Length::Units(185));
-        let loader_version_pick_list = pick_list(
-            Cow::from_iter((self.loader_versions.iter().filter(|v| self.show_loader_betas || !v.version.contains('-'))).cloned()),
-            self.selected_loader_version.clone(),
-            Message::SelectLoaderVersion
-        )
-        .width(Length::Units(185));
-
-        let versions_row = row![
-            column![minecraft_version_label, minecraft_version_pick_list].width(Length::Units(185)).spacing(2),
-            column![loader_version_label, loader_version_pick_list].width(Length::Units(185)).spacing(2),
-        ].spacing(10);
-            
-        let directory_label = text("Directory:").font(POPPINS_SEMIBOLD_FONT).height(Length::Units(30));
-        let directory_button = button(text("Q").width(Length::Units(30)).horizontal_alignment(Horizontal::Center)).width(Length::Units(30)).on_press(Message::DirectoryInputChangeButtonPressed);
-        let directory_label_row = row![directory_label, horizontal_space(Length::Fill), directory_button].width(Length::Units(380));
-
-        let directory_path = text(&self.directory.to_str().unwrap()).width(Length::Units(380)).font(POPPINS_REGULAR_FONT).size(16);
-        let directory_column = column![directory_label_row, directory_path].spacing(2);
-        
-        let options_label = text("Options:").width(Length::Units(380)).font(POPPINS_SEMIBOLD_FONT);
-        let show_snapshots_checkbox = checkbox("Show Snapshots", self.show_minecraft_snapshots, Message::ShowMinecraftSnapshotsCheckmarkChanged).width(Length::Units(380));
-        let show_loader_betas_checkbox = checkbox("Show Loader Betas", self.show_loader_betas, Message::ShowLoaderBetasCheckmarkChanged).width(Length::Units(380));
-        let create_profile_checkbox = checkbox("Create Profile", self.create_profile, Message::CreateProfileCheckmarkChanged).width(Length::Units(380));
-
-        let install = button(text("Install Client")
-                .horizontal_alignment(Horizontal::Center)
-                .width(Length::Units(250))
-                .font(POPPINS_SEMIBOLD_FONT)
-            )
-            .on_press(Message::Install)
-            .padding(10);
-        
-        // This is a placeholder for a separate "Installing" view!
-        let installing_text = text("Installing...");
-
         let banner = container(
             container(row![]).center_x().center_y()
         )
@@ -249,27 +270,93 @@ impl Application for Installer {
         .height(Length::Units(100))
         .style(Container::Box);
 
-        let mut content = iced::widget::column![
-            versions_row,
-            vertical_space(Length::Units(2)),
-            directory_column,
-            vertical_space(Length::Units(2)),
-            options_label,
-            show_snapshots_checkbox,
-            show_loader_betas_checkbox,
-            create_profile_checkbox,
-            vertical_space(Length::Fill),
-            install,
-            vertical_space(Length::Units(5)),
-        ]
-        .align_items(Alignment::Center)
-        .spacing(5)
-        .padding(5)
-        .width(Length::Fill);
+        let mut content: Element<'_, Self::Message, iced::Renderer<Self::Theme>> = match self.page {
+            // TODO - Actually code the other pages
+            Page::Main => {
+                let hello = text("Hello!");
+                let button = button(text("Client")).on_press(Message::EnterClientInstall);
+                let column = column![hello, button];
+                column.into()
+            },
+            Page::ClientInstallLoading => {
+                if self.have_minecraft_versions_loaded.is_some() && !self.have_minecraft_versions_loaded.unwrap() {
+                    let button = button(text("Retry")).on_press(Message::Retry);
+                    column![text("Oh no!"), button].into()
+                } else {
+                    text("Loading!").into()
+                }
+            },
+            Page::ClientInstall => {
+                let minecraft_version_label = text("Minecraft Version:").font(POPPINS_SEMIBOLD_FONT).width(Length::Units(185));
+                let minecraft_version_pick_list = pick_list(
+                    Cow::from_iter((self.minecraft_versions.iter().filter(|v| self.show_minecraft_snapshots || v.stable)).cloned()),
+                    self.selected_minecraft_version.clone(),
+                    Message::SelectMinecraftVersion
+                )
+                .width(Length::Units(185));
         
-        if self.is_installing {
-            content = content.push(installing_text);
-        }
+                let loader_version_label = text("Quilt Loader Version:").font(POPPINS_SEMIBOLD_FONT).width(Length::Units(185));
+                let loader_version_pick_list = pick_list(
+                    Cow::from_iter((self.loader_versions.iter().filter(|v| self.show_loader_betas || !v.version.contains('-'))).cloned()),
+                    self.selected_loader_version.clone(),
+                    Message::SelectLoaderVersion
+                )
+                .width(Length::Units(185));
+        
+                let versions_row = row![
+                    column![minecraft_version_label, minecraft_version_pick_list].width(Length::Units(185)).spacing(2),
+                    column![loader_version_label, loader_version_pick_list].width(Length::Units(185)).spacing(2),
+                ].spacing(10);
+                    
+                let directory_label = text("Directory:").font(POPPINS_SEMIBOLD_FONT).height(Length::Units(30));
+                let directory_button = button(text("Q").width(Length::Units(30)).horizontal_alignment(Horizontal::Center)).width(Length::Units(30)).on_press(Message::DirectoryInputChangeButtonPressed);
+                let directory_label_row = row![directory_label, horizontal_space(Length::Fill), directory_button].width(Length::Units(380));
+        
+                let directory_path = text(&self.directory.to_str().unwrap()).width(Length::Units(380)).font(POPPINS_REGULAR_FONT).size(16);
+                let directory_column = column![directory_label_row, directory_path].spacing(2);
+                
+                let options_label = text("Options:").width(Length::Units(380)).font(POPPINS_SEMIBOLD_FONT);
+                let show_snapshots_checkbox = checkbox("Show Snapshots", self.show_minecraft_snapshots, Message::ShowMinecraftSnapshotsCheckmarkChanged).width(Length::Units(380));
+                let show_loader_betas_checkbox = checkbox("Show Loader Betas", self.show_loader_betas, Message::ShowLoaderBetasCheckmarkChanged).width(Length::Units(380));
+                let create_profile_checkbox = checkbox("Create Profile", self.create_profile, Message::CreateProfileCheckmarkChanged).width(Length::Units(380));
+        
+                let install = button(text("Install Client")
+                        .horizontal_alignment(Horizontal::Center)
+                        .width(Length::Units(250))
+                        .font(POPPINS_SEMIBOLD_FONT)
+                    )
+                    .on_press(Message::Install)
+                    .padding(10);
+                
+                // This is a placeholder for a separate "Installing" view!
+                let installing_text = text("Installing...");
+        
+                let mut page = iced::widget::column![
+                    versions_row,
+                    vertical_space(Length::Units(2)),
+                    directory_column,
+                    vertical_space(Length::Units(2)),
+                    options_label,
+                    show_snapshots_checkbox,
+                    show_loader_betas_checkbox,
+                    create_profile_checkbox,
+                    vertical_space(Length::Fill),
+                    install,
+                    vertical_space(Length::Units(5)),
+                ]
+                .align_items(Alignment::Center)
+                .spacing(5)
+                .padding(5)
+                .width(Length::Fill);
+                
+                if self.is_installing {
+                    page = page.push(installing_text);
+                }
+
+                page.into()
+            },
+            Page::ServerDownload => todo!(),
+        };
 
         let all = column![
             banner,

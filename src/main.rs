@@ -27,7 +27,6 @@ fn main() -> Result<()> {
         println!("No gui mode")
     } else {
         gui::run(args)?;
-        //old_gui::run(args)?;
     }
 
     Ok(())
