@@ -5,10 +5,10 @@ use anyhow::{Result, Error, anyhow};
 use iced::theme::Container;
 use iced::{Settings, Application, executor, Command, Length, Element, Theme, color, Color, Background, Font};
 use iced::alignment::{Alignment, Horizontal};
-use iced::widget::{pick_list, column, text, checkbox, row, horizontal_rule, text_input, button, progress_bar, vertical_space, container, horizontal_space};
+use iced::widget::{pick_list, column, text, checkbox, row, horizontal_rule, text_input, button, progress_bar, vertical_space, container, horizontal_space, scrollable};
 use iced::window::Icon;
 use image::ImageFormat;
-use native_dialog::FileDialog;
+use rfd::FileDialog;
 
 use crate::installer::{MinecraftVersion, fetch_minecraft_versions, LoaderVersion, fetch_loader_versions, install_client, ClientInstallation};
 use crate::{Args, FONT_MEDIUM, ICON, FONT_REGULAR, theme, FONT_SEMIBOLD};
@@ -136,16 +136,15 @@ impl Application for Installer {
                 let working_dir = std::env::current_dir();
                 
                 if self.directory.is_dir() {
-                    dialog = dialog.set_location(&self.directory);
+                    dialog = dialog.set_directory(&self.directory);
                 } else if working_dir.is_ok() {
-                    dialog = dialog.set_location(working_dir.as_deref().unwrap())
+                    dialog = dialog.set_directory(working_dir.as_deref().unwrap())
                 }
-                let result = dialog.show_open_single_dir();
+                let result = dialog.pick_folder();
 
                 match result {
-                    Ok(Some(path)) => self.directory = path,
-                    Ok(None) => (),
-                    Err(_error) => (),
+                    Some(path) => self.directory = path,
+                    None => ()
                 }
             },
             Message::ShowMinecraftSnapshotsCheckmarkChanged(show_minecraft_snapshots) => {

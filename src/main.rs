@@ -3,7 +3,6 @@
 use anyhow::Result;
 use clap::Parser;
 
-mod old_gui;
 mod gui;
 mod installer;
 pub mod theme;
