@@ -158,7 +158,9 @@ impl Application for Installer {
                 }
             }
             Message::Retry => {
-                Command::batch([
+                self.have_minecraft_versions_loaded = None;
+                self.have_loader_versions_loaded = None;
+                return Command::batch([
                     // TODO - This is a redundance that should be a separate fn
                     Command::perform(fetch_minecraft_versions(), |result| {
                         if result.is_ok() {
