@@ -2,8 +2,9 @@ use std::borrow::Cow;
 use std::path::PathBuf;
 
 use anyhow::{Result, Error, anyhow};
-use iced::theme::Container;
-use iced::{Settings, Application, executor, Command, Length, Element, Theme, color, Color, Background, Font};
+use iced::theme::palette::{Background, Primary, Secondary, Success, Danger};
+use iced::theme::{Container, Palette, Custom};
+use iced::{Settings, Application, executor, Command, Length, Element, Theme, color, Color, Font};
 use iced::alignment::{Alignment, Horizontal};
 use iced::widget::{pick_list, column, text, checkbox, row, horizontal_rule, text_input, button, progress_bar, vertical_space, container, horizontal_space, scrollable};
 use iced::window::Icon;
@@ -16,9 +17,9 @@ use crate::{Args, FONT_MEDIUM, ICON, FONT_REGULAR, theme, FONT_SEMIBOLD};
 const POPPINS_REGULAR_FONT: Font = Font::External { name: "Poppins Regular", bytes: FONT_REGULAR };
 const POPPINS_SEMIBOLD_FONT: Font = Font::External { name: "Poppins Semi-Bold", bytes: FONT_SEMIBOLD };
 
-pub fn run(args: Args) -> iced::Result {
+pub fn run() -> iced::Result {
     let mut settings = Settings::default();
-    settings.flags = args;
+    // settings.flags = args;
     settings.default_font = Some(FONT_MEDIUM);
     settings.window.size = (400, 500);
     settings.window.icon = Some(Icon::from_file_data(ICON, Some(ImageFormat::Png)).unwrap());
@@ -100,7 +101,7 @@ fn get_default_client_directory() -> PathBuf {
 
 impl Application for Installer {
     type Executor = executor::Default;
-    type Flags = Args;
+    type Flags = ();
     type Message = Message;
     type Theme = Theme;
 

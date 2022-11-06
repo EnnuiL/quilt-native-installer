@@ -1,7 +1,7 @@
 #![windows_subsystem = "windows"]
 
 use anyhow::Result;
-use clap::Parser;
+use clap::{Parser, Args, Subcommand};
 
 mod gui;
 mod installer;
@@ -12,21 +12,43 @@ const FONT_MEDIUM: &'static [u8] = include_bytes!("../assets/poppins/Poppins-Med
 const FONT_SEMIBOLD: &'static [u8] = include_bytes!("../assets/poppins/Poppins-SemiBold.ttf");
 const ICON: &'static [u8] = include_bytes!("../assets/quilt.png");
 
-#[derive(Default, Parser)]
-#[clap(about, version)]
-pub struct Args {
+#[derive(Parser)]
+#[command(author, version, about)]
+pub struct Cli {
     /// Start the installer in no-gui mode
-    #[clap(long)]
-    no_gui: bool
+    #[command(subcommand)]
+    command: Commands,
+    #[arg(long)]
+    no_gui: bool,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    Install(Install),
+}
+
+#[derive(Args)]
+struct Install {
+    #[command(subcommand)]
+    command: InstallCommands
+}
+
+#[derive(Subcommand)]
+enum InstallCommands {
+    Client{},
+    Server{},
 }
 
 fn main() -> Result<()> {
-    let args = Args::parse();
+    let cli = Cli::parse();
 
-    if args.no_gui {
-        println!("No gui mode")
-    } else {
-        gui::run(args)?;
+    match &cli.command {
+        Commands::Install(install) => {
+            match &install.command {
+                InstallCommands::Client {  } => todo!(),
+                InstallCommands::Server {  } => todo!(),
+            }
+        },
     }
 
     Ok(())
