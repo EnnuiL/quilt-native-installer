@@ -15,9 +15,9 @@ const ICON: &'static [u8] = include_bytes!("../assets/quilt.png");
 #[derive(Parser)]
 #[command(author, version, about)]
 pub struct Cli {
-    /// Start the installer in no-gui mode
     #[command(subcommand)]
     command: Commands,
+    /// Start the installer in no-gui mode
     #[arg(long)]
     no_gui: bool,
 }
@@ -40,8 +40,10 @@ enum InstallCommands {
 }
 
 fn main() -> Result<()> {
+    gui::run();
+    /*
     let cli = Cli::parse();
-
+    
     match &cli.command {
         Commands::Install(install) => {
             match &install.command {
@@ -50,6 +52,7 @@ fn main() -> Result<()> {
             }
         },
     }
+    */
 
     Ok(())
 }
